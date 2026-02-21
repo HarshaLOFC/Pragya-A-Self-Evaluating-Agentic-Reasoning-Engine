@@ -1,0 +1,776 @@
+{
+  "name": "Pragya-Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Goal:\n{{$json[\"goal\"]}}"
+            },
+            {
+              "role": "system",
+              "content": "You are a structured execution planner. Your ONLY task is to decompose the user's goal into clear, actionable execution steps.\n\nRULES:\n1. Each step must assign EXACTLY ONE tool: search, calculate, or generate\n2. Use \"search\" ONLY for tasks requiring external information lookup or research\n3. Use \"calculate\" ONLY for tasks involving numeric computation, math, or quantitative analysis\n4. Use \"generate\" ONLY for tasks requiring content creation, writing, or structured output generation\n5. Each step must be specific and actionable\n6. Number steps sequentially starting from 1\n7. Output ONLY valid JSON matching the schema - no explanations, no additional text\n8. Do NOT make assumptions about data you don't have - if search is needed, specify it\n\nYou must return STRICT JSON only."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_schema",
+              "schema": "{\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"properties\": {\n    \"goal\": {\n      \"type\": \"string\"\n    },\n    \"steps\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"additionalProperties\": false,\n        \"properties\": {\n          \"id\": { \"type\": \"number\" },\n          \"task\": { \"type\": \"string\" },\n          \"tool\": {\n            \"type\": \"string\",\n            \"enum\": [\"search\", \"calculate\", \"generate\"]\n          }\n        },\n        \"required\": [\"id\", \"task\", \"tool\"]\n      }\n    }\n  },\n  \"required\": [\"goal\", \"steps\"]\n}",
+              "strict": true
+            }
+          },
+          "temperature": 0.1,
+          "topP": 1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -1312,
+        192
+      ],
+      "id": "ed4debee-28fa-4c7b-92a0-84c66789d2b9",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "UMZzn960qY1P2tpE",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $json.output[0].content[0].text;\nconst parsed = typeof response === 'string' ? JSON.parse(response) : response;\n\nreturn [\n  {\n    json: parsed\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -960,
+        192
+      ],
+      "id": "e34503d6-80eb-4b60-9d26-5b7fcec4b248",
+      "name": "Extract Plan"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "steps",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -736,
+        192
+      ],
+      "id": "2921e376-51cc-47e4-a562-d81d7c594d61",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.tool }}",
+                    "rightValue": "search",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "08927307-210a-45c3-a803-45a7b0d3a3af"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "d3d1e2e5-6ef3-4b8f-9bcd-325d163ca4b7",
+                    "leftValue": "={{ $json.tool }}",
+                    "rightValue": "generate",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "5e09c6e2-cb07-48ce-af34-2579d570cdc1",
+                    "leftValue": "={{ $json.tool }}",
+                    "rightValue": "calculate",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -512,
+        176
+      ],
+      "id": "c2c38621-6e4b-4d13-92a7-8836ece556a2",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://google.serper.dev/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "cbdb9e6a3dbddce56a0dd3ffd5ee3a63d466d551"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"q\": \"={{$json.task}}\",\n  \"gl\": \"in\",\n  \"hl\": \"en\",\n  \"num\": 5\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -224,
+        0
+      ],
+      "id": "3a82cd20-a6e7-4a5f-9eca-bf6cc5553d4d",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "const task = $json.task || \"\";\nconst id = $json.id || null;\n\nlet result;\nlet reasoning;\n\nif (typeof task !== \"string\") {\n  return [{\n    json: {\n      id: id,\n      task: \"\",\n      tool: \"calculate\",\n      result: \"Invalid task format.\",\n      reasoning: \"Task was not a valid string.\"\n    }\n  }];\n}\n\ntry {\n  const numbers = task.match(/-?\\d+(\\.\\d+)?/g);\n\n  if (numbers && numbers.length >= 2) {\n    const values = numbers.map(Number);\n    result = values.reduce((a, b) => a + b, 0);\n    reasoning = `Detected numbers: ${values.join(\", \")}. Computed sum.`;\n  } \n  else if (numbers && numbers.length === 1) {\n    result = Number(numbers[0]);\n    reasoning = `Single numeric value detected: ${result}.`;\n  } \n  else {\n    result = null;\n    reasoning = \"No numeric values found. Calculation skipped.\";\n  }\n\n} catch (error) {\n  result = null;\n  reasoning = \"Error during calculation.\";\n}\n\nreturn [{\n  json: {\n    id: id,\n    task: task,\n    tool: \"calculate\",\n    result: result !== null \n      ? `Calculation Result: ${result}` \n      : \"No valid numeric computation performed.\",\n    reasoning: reasoning\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        192
+      ],
+      "id": "44fd0a7f-a4b2-430d-abc6-a28fc9b08e09",
+      "name": "Calculator Tool"
+    },
+    {
+      "parameters": {
+        "jsCode": "const organic = $json.organic || [];\n\nconst summary = organic.slice(0, 3).map(result => {\n  return `Title: ${result.title}\nSnippet: ${result.snippet}\nLink: ${result.link}`;\n}).join(\"\\n\\n\");\n\nreturn [{\n  json: {\n    id: $json.id,\n    task: $json.task,\n    tool: \"search\",\n    result: summary\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        0
+      ],
+      "id": "8a9e79b9-d34c-4805-8335-6d279e8e6a0a",
+      "name": "Search Formatter"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Task: {{$json.task}}\n\nGenerate the exact output requested by this task. Be specific, factual, and concise. Do not add explanations."
+            },
+            {
+              "role": "system",
+              "content": "You are a content generation engine. Your task is to generate ONLY the requested output based on the task description.\n\nRULES:\n1. Generate ONLY what is explicitly requested in the task\n2. Do NOT add explanations, commentary, or meta-information\n3. If the task asks for a list, provide ONLY the list\n4. If the task asks for structured content, follow the structure exactly\n5. Do NOT invent facts, statistics, or data - if you need external information, state \"Requires search data\"\n6. Be specific and concrete - avoid vague or generic statements\n7. Keep output focused and relevant to the exact task\n\nGenerate the requested output now."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -288,
+        384
+      ],
+      "id": "d79430f3-907b-4a60-82a6-96c94c0d86ed",
+      "name": "Message a model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "UMZzn960qY1P2tpE",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $json.output[0].content[0].text;\n\nreturn [{\n  json: {\n    id: $json.id,\n    task: $json.task,\n    tool: \"generate\",\n    result: response\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        384
+      ],
+      "id": "c7f23953-ea59-454b-97b5-d06ed68954e4",
+      "name": "Generate Formatter"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        288,
+        176
+      ],
+      "id": "763d78c5-5e7f-4932-9c89-8461301da692",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Task: {{$json.task}}\nTool Used: {{$json.tool}}\nResult: {{$json.result}}\n\nEvaluate this result objectively using the scoring criteria. Provide a score (1-10) and specific feedback."
+            },
+            {
+              "role": "system",
+              "content": "You are a strict quality evaluation agent. Your task is to objectively evaluate task execution results.\n\nEVALUATION CRITERIA:\n1. Relevance: Does the result directly address the task? (0-3 points)\n2. Completeness: Is all required information present? (0-3 points)\n3. Accuracy: Is the information factual and correct? (0-2 points)\n4. Clarity: Is the result well-structured and clear? (0-2 points)\n\nSCORING RULES:\n- Score 1-3: Poor quality, major issues\n- Score 4-6: Acceptable but needs improvement\n- Score 7-8: Good quality, minor improvements possible\n- Score 9-10: Excellent quality\n\nFor scores below 7, provide ONE specific, actionable improvement.\nFor scores 7+, provide brief positive feedback.\n\nReturn ONLY valid JSON matching the schema - no additional text."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_schema",
+              "schema": "{\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"properties\": {\n    \"score\": { \"type\": \"number\" },\n    \"feedback\": { \"type\": \"string\" }\n  },\n  \"required\": [\"score\", \"feedback\"]\n}"
+            }
+          },
+          "temperature": 0.1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        512,
+        192
+      ],
+      "id": "2f51ecae-ff5c-4dad-9b0a-9210130155c8",
+      "name": "Critic Agent",
+      "credentials": {
+        "openAiApi": {
+          "id": "UMZzn960qY1P2tpE",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const criticText = $json.output[0].content[0].text;\nconst critic = typeof criticText === 'string' ? JSON.parse(criticText) : criticText;\n\nreturn [{\n  json: {\n    ...$node[\"Merge\"].json,\n    score: critic.score,\n    feedback: critic.feedback\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        192
+      ],
+      "id": "1669a3a6-a38c-4f21-9f74-05632aeab1a4",
+      "name": "Extract Critic Result"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "0b0239a4-92f7-4a6c-95af-ea685e65b2eb",
+              "leftValue": "={{ $json.score }}",
+              "rightValue": 7,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1088,
+        192
+      ],
+      "id": "61b31717-30b5-43ec-aed4-3288bab3b933",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Original Task: {{$json.task}}\n\nPrevious Result:\n{{$json.result}}\n\nCritic Feedback:\n{{$json.feedback}}\n\nImprove the result by addressing the specific feedback. Maintain factual accuracy and relevance."
+            },
+            {
+              "role": "system",
+              "content": "You are a result refinement agent. Your task is to improve a previous execution result based on specific critic feedback.\n\nRULES:\n1. Address ONLY the issues mentioned in the critic feedback\n2. Preserve all correct and relevant information from the previous result\n3. Do NOT add new information unless specifically requested by the feedback\n4. Do NOT remove relevant information unless it's incorrect\n5. Maintain the same output format as the original result\n6. Be specific and factual - do not make up information\n7. Return ONLY the improved result - no explanations or meta-commentary\n\nProvide the refined result now."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        1312,
+        120
+      ],
+      "id": "6c2088da-bcdf-4dd1-b462-48f0ca2379dc",
+      "name": "Refinement Agent",
+      "credentials": {
+        "openAiApi": {
+          "id": "UMZzn960qY1P2tpE",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const improved = $json.output[0].content[0].text;\n\nreturn [{\n  json: {\n    id: $json.id,\n    task: $json.task,\n    tool: $json.tool,\n    result: improved,\n    reasoning: \"Refined after critic feedback\",\n    score: 7\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1664,
+        120
+      ],
+      "id": "7b9d3f5e-e20f-454c-9cc5-323219f99a81",
+      "name": "Refinement Formatter"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1888,
+        192
+      ],
+      "id": "c9face73-d313-4782-be50-c3b1f69cabb6",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        2112,
+        192
+      ],
+      "id": "600e26fb-184d-4e56-a0ea-d9263ba5490b",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Execution Results:\n{{ JSON.stringify($json.data, null, 2) }}\n\nGenerate a comprehensive final report following the exact structure specified. Use only the information provided above."
+            },
+            {
+              "role": "system",
+              "content": "You are a final report generator. Your task is to create a comprehensive execution report based on completed task results.\n\nREPORT STRUCTURE (follow exactly):\n\n# Executive Summary\n[2-3 sentences summarizing the overall goal and outcome]\n\n# Execution Steps\n[For each step, include:\n- Step ID and Task Description\n- Tool Used\n- Result Summary\n- Quality Score]\n\n# Key Insights\n[List 3-5 key findings or decisions from the execution]\n\n# Final Deliverable\n[Synthesize all results into a cohesive final output that addresses the original goal]\n\nRULES:\n1. Use ONLY information from the execution results - do not add external information\n2. Be factual and specific - cite step numbers when referencing results\n3. Do NOT make assumptions or add speculative content\n4. Keep the executive summary concise and focused\n5. Ensure the final deliverable directly addresses the original goal\n6. Use clear, professional language\n\nGenerate the report now."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        2336,
+        192
+      ],
+      "id": "22e3ccb2-4ea3-47e5-84c7-2c42bb42272c",
+      "name": "Final Report Generator",
+      "credentials": {
+        "openAiApi": {
+          "id": "UMZzn960qY1P2tpE",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7b14589b-68f8-4cc0-915a-0277b9e3c98b",
+              "name": "goal",
+              "value": "Prepare a 3 day event on cloud computing with 3 hours learning daily.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1536,
+        192
+      ],
+      "id": "569cef4b-1872-45ea-b463-0fe1f0857f2e",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1760,
+        192
+      ],
+      "id": "04b96526-6b71-44fb-b033-676d2b7c894c",
+      "name": "When clicking ‘Execute workflow’"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Extract Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Plan": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Calculator Tool",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Message a model1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Search Formatter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Formatter": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model1": {
+      "main": [
+        [
+          {
+            "node": "Generate Formatter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Formatter": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Calculator Tool": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Critic Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Critic Agent": {
+      "main": [
+        [
+          {
+            "node": "Extract Critic Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Critic Result": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Refinement Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Refinement Agent": {
+      "main": [
+        [
+          {
+            "node": "Refinement Formatter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Refinement Formatter": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Final Report Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final Report Generator": {
+      "main": [
+        []
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "6f6948e4-9933-4ed8-954e-6e32b87e34ae",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "9a0c209af7b3ab2b725ceb4eb86ecc20676f46ad61f36b06d5a99253844e9227"
+  },
+  "id": "IinCJu3QAyZInNUn",
+  "tags": []
+}
